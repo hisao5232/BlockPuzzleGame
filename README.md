@@ -1,50 +1,144 @@
-# Welcome to your Expo app 👋
+# Block Puzzle Game
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native + Expoで学習用として開発しているAndroidアプリ。テトリス風のブロック積み上げパズルゲームです。
 
-## Get started
+## 概要
 
-1. Install dependencies
+- **言語**: TypeScript
+- **フレームワーク**: React Native + Expo
+- **対象プラットフォーム**: Android（Web開発対応）
+- **学習目的**: React Native、Expoを使ったモバイルゲーム開発の習得
 
-   ```bash
-   npm install
-   ```
+## 機能（実装予定）
 
-2. Start the app
+- [x] タイトル画面
+  - ゲームタイトル表示
+  - スタートボタン
+  - ハイスコア表示（ベスト3）
+  - フッター（著作権表示）
+- [ ] ゲーム画面
+  - 7×7グリッド表示
+  - ブロック操作ロジック
+  - スコア計算
+  - ゲームオーバー画面
+- [ ] ローカルストレージ
+  - ハイスコア保存
+  - ゲーム設定の保存
 
-   ```bash
-   npx expo start
-   ```
+## プロジェクト構成
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+BlockPuzzleGame/
+├── app/                    # Expoルーター（ナビゲーション）
+│   ├── _layout.tsx
+│   └── index.tsx           # タイトル画面
+├── components/             # Reactコンポーネント
+│   ├── TitleScreen.tsx
+│   ├── Header.tsx
+│   ├── Footer.tsx
+│   ├── HighScoreList.tsx
+│   └── StartButton.tsx
+├── styles/                 # スタイル定義（色・タイポグラフィ・余白）
+│   ├── colors.ts
+│   ├── typography.ts
+│   └── spacing.ts
+├── types/                  # TypeScript型定義
+│   └── game.ts
+├── data/                   # モックデータ
+│   └── mockHighScores.ts
+├── hooks/                  # Reactカスタムフック
+├── assets/                 # 画像・フォント等
+├── package.json
+└── README.md
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## セットアップ
 
-## Learn more
+### 必須環境
+- Node.js 18.0以上
+- npm または yarn
 
-To learn more about developing your project with Expo, look at the following resources:
+### インストール
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+# リポジトリをクローン
+git clone https://github.com/yourusername/BlockPuzzleGame.git
+cd BlockPuzzleGame
 
-## Join the community
+# 依存パッケージをインストール
+npm install
+```
 
-Join our community of developers creating universal apps.
+### 開発サーバーの起動
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+# 開発サーバーを起動
+npm start
+
+# または
+expo start
+```
+
+起動後、以下のオプションで実行：
+- **Web**: `w`キーを押す（推奨：学習段階）
+- **Android**: `a`キーを押す（要Android Studio設定）
+- **iOS**: `i`キーを押す（Macのみ）
+
+## 学習内容
+
+このプロジェクトを通じて学習している内容：
+
+- [ ] React Nativeの基礎（コンポーネント、State、Props）
+- [ ] Expoルーターでのナビゲーション
+- [ ] StyleSheetを使ったスタイリング
+- [ ] TypeScriptの型定義
+- [ ] ゲームロジック実装
+- [ ] ローカルストレージ操作
+- [ ] コンポーネント分割設計
+
+## 開発の進め方
+
+1. **タイトル画面** ✅ 完了
+2. **ゲーム画面基本フレーム** - 次のステップ
+3. **グリッド表示とブロック操作**
+4. **ゲームロジック実装**
+5. **スコア計算**
+6. **ハイスコア保存機能**
+
+## ファイル説明
+
+| ファイル | 説明 |
+|---------|------|
+| `styles/colors.ts` | アプリ全体の色定義を一元管理 |
+| `styles/typography.ts` | フォントサイズ・太さを一元管理 |
+| `styles/spacing.ts` | マージン・パディングを一元管理 |
+| `types/game.ts` | TypeScript型定義（HighScoreなど） |
+| `data/mockHighScores.ts` | 初期データ（モックハイスコア） |
+
+## ライセンス
+
+MIT License - 学習目的での使用を想定
+
+## 注意事項
+
+このプロジェクトはテトリス風のパズルゲームですが、以下の点に留意して開発しています：
+- 独自のゲームシステム設計
+- オリジナルのアート・サウンド
+- 教育的な学習プロジェクトとして公開
+
+## 参考リンク
+
+- [React Native公式ドキュメント](https://reactnative.dev/)
+- [Expo公式ドキュメント](https://docs.expo.dev/)
+- [TypeScript公式](https://www.typescriptlang.org/)
+
+---
+
+**作成者**: hisao  
+**開始日**: 2026-05-27
+
+## 免責事項
+
+このゲームはテトリス風のオリジナルパズルゲームです。
+Tetris®は登録商標です。本プロジェクトはテトリスとは
+一切関係のない独立した学習プロジェクトです。
