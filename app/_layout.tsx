@@ -14,12 +14,20 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
-        {/* タイトル画面をホーム画面として設定 */}
+        {/* タイトル画面 */}
         <Stack.Screen 
           name="index" 
           options={{ 
             headerShown: false,
             title: 'Block Puzzle Game'
+          }} 
+        />
+        {/* ゲーム画面を追加 */}
+        <Stack.Screen 
+          name="game" 
+          options={{ 
+            headerShown: false,
+            title: 'ゲーム中'
           }} 
         />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

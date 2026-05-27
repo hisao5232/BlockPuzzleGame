@@ -5,6 +5,7 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
+import { useRouter } from 'expo-router'; // 追加：ナビゲーション用
 import { Header } from './Header';
 import { StartButton } from './StartButton';
 import { HighScoreList } from './HighScoreList';
@@ -18,12 +19,17 @@ interface TitleScreenProps {
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({ onGameStart }) => {
+  const router = useRouter(); // ナビゲーションを取得
+
   const handleStartGame = () => {
-    // ゲーム開始時の処理
+    // ===== ゲーム開始時の処理 =====
     if (onGameStart) {
       onGameStart();
     }
-    console.log('ゲームが開始されました');
+    console.log('ゲーム画面に遷移します');
+    
+    // ゲーム画面へナビゲート
+    router.push('./game');
   };
 
   return (
