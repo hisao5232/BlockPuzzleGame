@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,7 +15,16 @@ import { GameGrid } from './game/GameGrid';
 import { NextBlockPreview } from './game/NextBlockPreview';
 import { HoldBlockPreview } from './game/HoldBlockPreview';
 import { ScoreDisplay } from './game/ScoreDisplay';
-import { getRandomBlockType, mergeBlockWithGrid } from '@/utils/blockUtils';
+import { GameOverScreen } from './game/GameOverScreen';
+import {
+  getRandomBlockType,
+  mergeBlockWithGrid,
+  canMoveDown,
+  moveBlockDown,
+  fixBlockToGrid,
+  createNewBlock,
+  checkGameOver,
+} from '@/utils/blockUtils';
 
 interface GameScreenProps {
   onGameEnd?: (score: number) => void;
@@ -31,7 +40,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     level: 1,
     gameOver: false,
     paused: false,
-    nextBlock: getRandomBlockType(), // 最初のネクストブロックをランダム生成
+    nextBlock: getRandomBlockType(),
     heldBlock: null,
   });
 
@@ -52,33 +61,132 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
   // ===== 現在落下中のブロック =====
   const [currentBlock, setCurrentBlock] = useState<CurrentBlock | null>(null);
 
+  // ===== ゲーム落下ループの間隔（ミリ秒） =====
+  const FALL_INTERVAL = 1000;
+
+  // ===== 落下ループのタイマーID =====
+  const fallIntervalRef = useRef<number | null>(null);
+
   // ===== ゲーム開始時の初期化 =====
   useEffect(() => {
     console.log('ゲーム画面が開始されました');
-    
-    // ===== 最初のブロックを生成して落下開始 =====
-    const firstBlock: CurrentBlock = {
-      type: gameState.nextBlock,
-      row: 0,                    // 上から落下開始
-      column: Math.floor(10 / 2 - 1), // 中央に配置（10マスの中心）
-      rotation: 0,               // 回転状態なし
-    };
+
+    // ===== 最初のブロックを生成 =====
+    const firstBlock = createNewBlock(gameState.nextBlock);
     setCurrentBlock(firstBlock);
 
-    // ===== 次のブロックをランダムに決定 =====
+    // ===== 次のネクストブロックを生成 =====
     setGameState((prev) => ({
       ...prev,
       nextBlock: getRandomBlockType(),
     }));
   }, []);
 
-  // ===== グリッド描画用（落下中のブロックを含める） =====
-  // currentBlockをグリッドにマージして表示
+  // ===== ブロック落下ループ =====
+  useEffect(() => {
+    if (!gameState.gameOver && !gameState.paused && currentBlock) {
+      fallIntervalRef.current = setInterval(() => {
+        setCurrentBlock((prevBlock) => {
+          if (!prevBlock) return null;
+
+          if (canMoveDown(prevBlock, grid)) {
+            // ===== 下に移動できる =====
+            return moveBlockDown(prevBlock);
+          } else {
+            // ===== ブロック着地処理 =====
+            console.log(`ブロック着地：${prevBlock.type}型`);
+
+            // ===== グリッドにブロックを固定 =====
+            const newGrid = fixBlockToGrid(grid, prevBlock);
+            setGrid(newGrid);
+
+            // ===== ゲームオーバー判定 =====
+            // グリッドの最上部に埋まっているブロックがあるかチェック
+            if (checkGameOver(newGrid)) {
+              console.log('ゲームオーバー！');
+              // ===== ゲーム状態をゲームオーバーに設定 =====
+              setGameState((prev) => ({
+                ...prev,
+                gameOver: true,
+              }));
+              return null; // 現在のブロックをクリア
+            }
+
+            // ===== 次のブロックを生成 =====
+            const nextNewBlock = createNewBlock(gameState.nextBlock);
+            setGameState((prev) => ({
+              ...prev,
+              nextBlock: getRandomBlockType(),
+            }));
+
+            return nextNewBlock;
+          }
+        });
+      }, FALL_INTERVAL);
+    }
+
+    // ===== クリーンアップ =====
+    return () => {
+      if (fallIntervalRef.current) {
+        clearInterval(fallIntervalRef.current);
+      }
+    };
+  }, [gameState.gameOver, gameState.paused, currentBlock, grid, gameState.nextBlock]);
+
+  // ===== グリッド描画用 =====
   const displayGrid = mergeBlockWithGrid(grid, currentBlock);
+
+  // ===== リスタートボタン押下時の処理 =====
+  const handleRestart = () => {
+    console.log('ゲームをリスタートします');
+
+    // ===== グリッドを初期化 =====
+    setGrid(() => {
+      return Array(22)
+        .fill(null)
+        .map(() =>
+          Array(10)
+            .fill(null)
+            .map(() => ({
+              type: BlockType.None,
+              filled: false,
+            }))
+        );
+    });
+
+    // ===== ゲーム状態をリセット =====
+    const firstBlock = createNewBlock(gameState.nextBlock);
+    setCurrentBlock(firstBlock);
+
+    setGameState({
+      score: 0,
+      lines: 0,
+      level: 1,
+      gameOver: false,
+      paused: false,
+      nextBlock: getRandomBlockType(),
+      heldBlock: null,
+    });
+  };
 
   // ===== タイトルに戻るボタン押下時の処理 =====
   const handleReturnToTitle = () => {
     console.log('タイトルに戻ります');
+    if (fallIntervalRef.current) {
+      clearInterval(fallIntervalRef.current);
+    }
+    if (onGameEnd) {
+      onGameEnd(gameState.score);
+    }
+    router.back();
+  };
+
+  // ===== タイトルに戻るボタン（ゲーム中用） =====
+  const handleReturnTitleInGame = () => {
+    console.log('タイトルに戻ります');
+    if (fallIntervalRef.current) {
+      clearInterval(fallIntervalRef.current);
+    }
     if (onGameEnd) {
       onGameEnd(gameState.score);
     }
@@ -93,7 +201,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
           <Text style={styles.title}>ブロックパズル</Text>
           <TouchableOpacity
             style={styles.returnButton}
-            onPress={handleReturnToTitle}
+            onPress={handleReturnTitleInGame}
           >
             <Text style={styles.returnButtonText}>戻る</Text>
           </TouchableOpacity>
@@ -108,7 +216,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
 
           {/* ===== 中央：ゲームグリッド ===== */}
           <View style={styles.centerPanel}>
-            {/* displayGridを使用して、落下中のブロックを含める */}
             <GameGrid grid={displayGrid} />
           </View>
 
@@ -129,6 +236,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
           />
         </View>
       </View>
+
+      {/* ===== ゲームオーバー画面 ===== */}
+      {gameState.gameOver && (
+        <GameOverScreen
+          score={gameState.score}
+          lines={gameState.lines}
+          level={gameState.level}
+          onRestart={handleRestart}
+          onReturnToTitle={handleReturnToTitle}
+        />
+      )}
     </SafeAreaView>
   );
 };
