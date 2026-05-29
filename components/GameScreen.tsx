@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { GameState, Grid, BlockType, GridCell, CurrentBlock } from '@/types/game';
+import { GameState, Grid, BlockType, CurrentBlock } from '@/types/game';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { spacing } from '@/styles/spacing';
@@ -16,7 +16,6 @@ import { NextBlockPreview } from './game/NextBlockPreview';
 import { HoldBlockPreview } from './game/HoldBlockPreview';
 import { ScoreDisplay } from './game/ScoreDisplay';
 import { GameOverScreen } from './game/GameOverScreen';
-import { MoveButtons } from './game/MoveButtons';
 import {
   getRandomBlockType,
   mergeBlockWithGrid,
@@ -62,95 +61,111 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
       );
   });
 
-  const [currentBlock, setCurrentBlock] = useState<CurrentBlock | null>(null);
+  // ===== currentBlockを初期値で初期化 =====
+  const [currentBlock, setCurrentBlock] = useState<CurrentBlock | null>(() => {
+    // 初期ブロックを直接生成
+    return createNewBlock(BlockType.I);
+  });
+
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const FALL_INTERVAL = 1000;
   const fallIntervalRef = useRef<number | null>(null);
+  const gridRef = useRef<Grid>(grid);
+
+  // ===== gridが更新されたらRefも更新 =====
+  useEffect(() => {
+    gridRef.current = grid;
+  }, [grid]);
 
   // ===== ゲーム開始時の初期化 =====
   useEffect(() => {
     console.log('ゲーム画面が開始されました');
+    console.log('currentBlock:', currentBlock);
 
-    const firstBlock = createNewBlock(gameState.nextBlock);
-    setCurrentBlock(firstBlock);
-
+    // ===== ゲーム状態を初期化 =====
     setGameState((prev) => ({
       ...prev,
       nextBlock: getRandomBlockType(),
     }));
+
+    // ===== 初期化完了を通知 =====
+    setTimeout(() => {
+      console.log('初期化完了、落下ループ開始準備');
+      setIsInitialized(true);
+    }, 100); // 100ms後に初期化完了を通知
   }, []);
 
-  // ===== ブロック落下ループ =====
-  // gridが変更されたときだけ再実行（ブロック固定時）
+  // ===== 落下ループを開始（初期化完了後） =====
   useEffect(() => {
-    console.log('落下ループ開始:', {
-    gameOver: gameState.gameOver,
-    paused: gameState.paused,
-    currentBlock: currentBlock,
-  });
+    // ===== 初期化がまだ完了していなければ開始しない =====
+    if (!isInitialized) {
+      console.log('初期化待ち...');
+      return;
+    }
 
-    if (!gameState.gameOver && !gameState.paused && currentBlock) {
-      console.log('タイマーを設定します');
+    if (!currentBlock) {
+      console.log('currentBlockがnullのため、落下ループを開始しません');
+      return;
+    }
 
-      // ===== 既存のタイマーをクリア =====
-      if (fallIntervalRef.current) {
-        clearInterval(fallIntervalRef.current);
-      }
+    if (gameState.gameOver || gameState.paused) {
+      console.log('ゲーム終了またはポーズ状態');
+      return;
+    }
 
-      // ===== 新しいタイマーを設定 =====
-      fallIntervalRef.current = setInterval(() => {
-        console.log('タイマーコールバック実行');
-        
-        setCurrentBlock((prevBlock) => {
-          console.log('prevBlock:', prevBlock);
-          console.log('grid:', grid);
-          
-          if (!prevBlock) return null;
+    console.log('🎮 落下ループを開始します:', currentBlock);
 
-          // ===== ブロックが下に移動できるかチェック =====
-          if (canMoveDown(prevBlock, grid)) {
-            console.log('下に移動');
+    // ===== 既存のタイマーをクリア =====
+    if (fallIntervalRef.current) {
+      clearInterval(fallIntervalRef.current);
+    }
 
-            return moveBlockDown(prevBlock);
-          } else {
-            // ===== ブロック着地処理 =====
-            console.log(`ブロック着地：${prevBlock.type}型`);
+    // ===== 新しいタイマーを設定 =====
+    fallIntervalRef.current = setInterval(() => {
+      setCurrentBlock((prevBlock) => {
+        if (!prevBlock) return null;
 
-            // ===== グリッドにブロックを固定（setGridで次のuseEffectトリガー） =====
-            setGrid((prevGrid) => {
-              const newGrid = fixBlockToGrid(prevGrid, prevBlock);
+        // ===== gridRefの最新値を使用 =====
+        if (canMoveDown(prevBlock, gridRef.current)) {
+          return moveBlockDown(prevBlock);
+        } else {
+          // ===== ブロック着地処理 =====
+          console.log(`ブロック着地：${prevBlock.type}型`);
 
-              // ===== ゲームオーバー判定 =====
-              if (checkGameOver(newGrid)) {
-                console.log('ゲームオーバー！');
-                setGameState((prev) => ({
-                  ...prev,
-                  gameOver: true,
-                }));
-              }
+          // ===== グリッドにブロックを固定 =====
+          setGrid((prevGrid) => {
+            const newGrid = fixBlockToGrid(prevGrid, prevBlock);
 
-              return newGrid;
-            });
-
-            // ===== 次のブロックを生成 =====
-            setGameState((prev) => {
-              const nextNewBlock = createNewBlock(prev.nextBlock);
-              setCurrentBlock(nextNewBlock);
-
-              return {
+            // ===== ゲームオーバー判定 =====
+            if (checkGameOver(newGrid)) {
+              console.log('ゲームオーバー！');
+              setGameState((prev) => ({
                 ...prev,
-                nextBlock: getRandomBlockType(),
-              };
-            });
+                gameOver: true,
+              }));
+            }
 
-            return null; // 現在のブロックはクリア
-          }
-        });
-      }, FALL_INTERVAL);
-      console.log('タイマーID:', fallIntervalRef.current);
-  } else {
-    console.log('タイマー設定をスキップ');
-  }
+            return newGrid;
+          });
+
+          // ===== 次のブロックを生成 =====
+          setGameState((prev) => {
+            const nextNewBlock = createNewBlock(prev.nextBlock);
+            setCurrentBlock(nextNewBlock);
+
+            return {
+              ...prev,
+              nextBlock: getRandomBlockType(),
+            };
+          });
+
+          return null;
+        }
+      });
+    }, FALL_INTERVAL);
+
+    console.log('タイマーID:', fallIntervalRef.current);
 
     // ===== クリーンアップ =====
     return () => {
@@ -158,7 +173,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
         clearInterval(fallIntervalRef.current);
       }
     };
-  }, [gameState.gameOver, gameState.paused]); // ===== gameStateの開始/停止フラグのみ依存 =====
+  }, [isInitialized, gameState.gameOver, gameState.paused]);
 
   // ===== グリッド描画用 =====
   const displayGrid = mergeBlockWithGrid(grid, currentBlock);
@@ -234,7 +249,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     if (onGameEnd) {
       onGameEnd(gameState.score);
     }
-    router.back();
+    router.push('/');
   };
 
   const handleReturnTitleInGame = () => {
@@ -245,7 +260,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     if (onGameEnd) {
       onGameEnd(gameState.score);
     }
-    router.back();
+    router.push('/');
   };
 
   return (
@@ -267,7 +282,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
           {/* ===== 左側：ホールド欄 + 左移動ボタン ===== */}
           <View style={styles.leftPanel}>
             <HoldBlockPreview heldBlock={gameState.heldBlock} />
-            {/* 左移動ボタン */}
             <TouchableOpacity
               style={styles.moveButton}
               onPress={handleMoveLeft}
@@ -287,7 +301,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
             <View style={styles.nextBlockContainer}>
               <NextBlockPreview nextBlock={gameState.nextBlock} />
             </View>
-            {/* 右移動ボタン */}
             <TouchableOpacity
               style={styles.moveButton}
               onPress={handleMoveRight}
@@ -369,9 +382,9 @@ const styles = StyleSheet.create({
   },
 
   leftPanel: {
-    justifyContent: 'space-between', // 上下に配置を分ける
+    justifyContent: 'space-between',
     paddingRight: spacing.sm,
-    alignItems: 'center', // 左ボタンを中央に配置
+    alignItems: 'center',
   },
 
   centerPanel: {
@@ -381,9 +394,9 @@ const styles = StyleSheet.create({
   },
 
   rightPanel: {
-    justifyContent: 'space-between', // 上下に配置を分ける
+    justifyContent: 'space-between',
     paddingLeft: spacing.sm,
-    alignItems: 'center', // 右ボタンを中央に配置
+    alignItems: 'center',
   },
 
   nextBlockContainer: {
@@ -399,26 +412,24 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 
-  // ===== 左右移動ボタン =====
-moveButton: {
-  backgroundColor: colors.secondary,
-  width: 50,
-  height: 50,
-  borderRadius: 10,
-  justifyContent: 'center',
-  alignItems: 'center',
-  elevation: 5,
-  shadowColor: colors.secondary,
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.3,
-  shadowRadius: 8,
-},
+  moveButton: {
+    backgroundColor: colors.secondary,
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: colors.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
 
-moveButtonArrow: {
-  ...typography.heading,
-  color: colors.text,
-  fontWeight: 'bold',
-  fontSize: 24,
-},
-
+  moveButtonArrow: {
+    ...typography.heading,
+    color: colors.text,
+    fontWeight: 'bold',
+    fontSize: 24,
+  },
 });
