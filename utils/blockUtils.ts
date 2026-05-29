@@ -178,3 +178,93 @@ export const checkGameOver = (grid: Grid): boolean => {
   }
   return false; // ゲーム継続
 };
+
+// ===== ブロックが左に移動できるかチェックする関数 =====
+// ブロックが左に1マス移動できるかを判定
+export const canMoveLeft = (
+  currentBlock: CurrentBlock,
+  grid: Grid
+): boolean => {
+  // ===== ブロック形状を取得 =====
+  const blockShape = getBlockShape(currentBlock.type);
+
+  // ===== ブロック形状の4×4配列をループ =====
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      // ===== ブロック形状で1の位置をチェック =====
+      if (blockShape[row][col] === 1) {
+        // グリッド上の実際の位置（左への移動をチェック）
+        const gridRow = currentBlock.row + row;
+        const gridCol = currentBlock.column + col - 1; // -1は左への移動
+
+        // ===== グリッドの左限に到達したかチェック =====
+        if (gridCol < 0) {
+          // グリッドの左端に到達 → 移動不可
+          return false;
+        }
+
+        // ===== グリッドの既に埋まっている位置に衝突したかチェック =====
+        if (gridRow >= 0 && grid[gridRow][gridCol].filled) {
+          // 他のブロックに衝突 → 移動不可
+          return false;
+        }
+      }
+    }
+  }
+
+  // ===== 左に移動できる状態 =====
+  return true;
+};
+
+// ===== ブロックが右に移動できるかチェックする関数 =====
+// ブロックが右に1マス移動できるかを判定
+export const canMoveRight = (
+  currentBlock: CurrentBlock,
+  grid: Grid
+): boolean => {
+  // ===== ブロック形状を取得 =====
+  const blockShape = getBlockShape(currentBlock.type);
+
+  // ===== ブロック形状の4×4配列をループ =====
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      // ===== ブロック形状で1の位置をチェック =====
+      if (blockShape[row][col] === 1) {
+        // グリッド上の実際の位置（右への移動をチェック）
+        const gridRow = currentBlock.row + row;
+        const gridCol = currentBlock.column + col + 1; // +1は右への移動
+
+        // ===== グリッドの右限に到達したかチェック =====
+        if (gridCol >= grid[0].length) {
+          // グリッドの右端に到達（10マス） → 移動不可
+          return false;
+        }
+
+        // ===== グリッドの既に埋まっている位置に衝突したかチェック =====
+        if (gridRow >= 0 && grid[gridRow][gridCol].filled) {
+          // 他のブロックに衝突 → 移動不可
+          return false;
+        }
+      }
+    }
+  }
+
+  // ===== 右に移動できる状態 =====
+  return true;
+};
+
+// ===== ブロックを左に1マス移動させる関数 =====
+export const moveBlockLeft = (currentBlock: CurrentBlock): CurrentBlock => {
+  return {
+    ...currentBlock,
+    column: currentBlock.column - 1, // 列を1減らす（左移動）
+  };
+};
+
+// ===== ブロックを右に1マス移動させる関数 =====
+export const moveBlockRight = (currentBlock: CurrentBlock): CurrentBlock => {
+  return {
+    ...currentBlock,
+    column: currentBlock.column + 1, // 列を1増やす（右移動）
+  };
+};

@@ -16,6 +16,7 @@ import { NextBlockPreview } from './game/NextBlockPreview';
 import { HoldBlockPreview } from './game/HoldBlockPreview';
 import { ScoreDisplay } from './game/ScoreDisplay';
 import { GameOverScreen } from './game/GameOverScreen';
+import { MoveButtons } from './game/MoveButtons';
 import {
   getRandomBlockType,
   mergeBlockWithGrid,
@@ -24,6 +25,10 @@ import {
   fixBlockToGrid,
   createNewBlock,
   checkGameOver,
+  canMoveLeft,
+  canMoveRight,
+  moveBlockLeft,
+  moveBlockRight,
 } from '@/utils/blockUtils';
 
 interface GameScreenProps {
@@ -101,15 +106,13 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
             setGrid(newGrid);
 
             // ===== ゲームオーバー判定 =====
-            // グリッドの最上部に埋まっているブロックがあるかチェック
             if (checkGameOver(newGrid)) {
               console.log('ゲームオーバー！');
-              // ===== ゲーム状態をゲームオーバーに設定 =====
               setGameState((prev) => ({
                 ...prev,
                 gameOver: true,
               }));
-              return null; // 現在のブロックをクリア
+              return null;
             }
 
             // ===== 次のブロックを生成 =====
@@ -135,6 +138,38 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
 
   // ===== グリッド描画用 =====
   const displayGrid = mergeBlockWithGrid(grid, currentBlock);
+
+  // ===== 左移動ボタン押下時の処理 =====
+  const handleMoveLeft = () => {
+    setCurrentBlock((prevBlock) => {
+      if (!prevBlock) return null;
+
+      // ===== 左に移動できるかチェック =====
+      if (canMoveLeft(prevBlock, grid)) {
+        console.log('左に移動');
+        return moveBlockLeft(prevBlock);
+      } else {
+        console.log('左に移動できません');
+        return prevBlock; // 動かない
+      }
+    });
+  };
+
+  // ===== 右移動ボタン押下時の処理 =====
+  const handleMoveRight = () => {
+    setCurrentBlock((prevBlock) => {
+      if (!prevBlock) return null;
+
+      // ===== 右に移動できるかチェック =====
+      if (canMoveRight(prevBlock, grid)) {
+        console.log('右に移動');
+        return moveBlockRight(prevBlock);
+      } else {
+        console.log('右に移動できません');
+        return prevBlock; // 動かない
+      }
+    });
+  };
 
   // ===== リスタートボタン押下時の処理 =====
   const handleRestart = () => {
@@ -209,9 +244,17 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
 
         {/* ===== メインゲームエリア ===== */}
         <View style={styles.gameContainer}>
-          {/* ===== 左側：ホールド欄 ===== */}
+          {/* ===== 左側：ホールド欄 + 左移動ボタン ===== */}
           <View style={styles.leftPanel}>
             <HoldBlockPreview heldBlock={gameState.heldBlock} />
+            {/* 左移動ボタン */}
+            <TouchableOpacity
+              style={styles.moveButton}
+              onPress={handleMoveLeft}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.moveButtonArrow}>←</Text>
+            </TouchableOpacity>
           </View>
 
           {/* ===== 中央：ゲームグリッド ===== */}
@@ -219,11 +262,19 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
             <GameGrid grid={displayGrid} />
           </View>
 
-          {/* ===== 右側：ネクストブロック ===== */}
+          {/* ===== 右側：ネクストブロック + 右移動ボタン ===== */}
           <View style={styles.rightPanel}>
             <View style={styles.nextBlockContainer}>
               <NextBlockPreview nextBlock={gameState.nextBlock} />
             </View>
+            {/* 右移動ボタン */}
+            <TouchableOpacity
+              style={styles.moveButton}
+              onPress={handleMoveRight}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.moveButtonArrow}>→</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -293,13 +344,14 @@ const styles = StyleSheet.create({
   gameContainer: {
     flex: 1,
     flexDirection: 'row',
-    marginBottom: spacing.lg,
     gap: spacing.md,
+    alignItems: 'stretch',
   },
 
   leftPanel: {
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between', // 上下に配置を分ける
     paddingRight: spacing.sm,
+    alignItems: 'center', // 左ボタンを中央に配置
   },
 
   centerPanel: {
@@ -309,8 +361,9 @@ const styles = StyleSheet.create({
   },
 
   rightPanel: {
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between', // 上下に配置を分ける
     paddingLeft: spacing.sm,
+    alignItems: 'center', // 右ボタンを中央に配置
   },
 
   nextBlockContainer: {
@@ -325,4 +378,27 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
   },
+
+  // ===== 左右移動ボタン =====
+moveButton: {
+  backgroundColor: colors.secondary,
+  width: 50,
+  height: 50,
+  borderRadius: 10,
+  justifyContent: 'center',
+  alignItems: 'center',
+  elevation: 5,
+  shadowColor: colors.secondary,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.3,
+  shadowRadius: 8,
+},
+
+moveButtonArrow: {
+  ...typography.heading,
+  color: colors.text,
+  fontWeight: 'bold',
+  fontSize: 24,
+},
+
 });
