@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -49,7 +49,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     heldBlock: null,
   });
 
-  // ===== グリッドの状態を管理（10×22） =====
   const [grid, setGrid] = useState<Grid>(() => {
     return Array(22)
       .fill(null)
@@ -63,24 +62,18 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
       );
   });
 
-  // ===== 現在落下中のブロック =====
   const [currentBlock, setCurrentBlock] = useState<CurrentBlock | null>(null);
 
-  // ===== ゲーム落下ループの間隔（ミリ秒） =====
   const FALL_INTERVAL = 1000;
-
-  // ===== 落下ループのタイマーID =====
   const fallIntervalRef = useRef<number | null>(null);
 
   // ===== ゲーム開始時の初期化 =====
   useEffect(() => {
     console.log('ゲーム画面が開始されました');
 
-    // ===== 最初のブロックを生成 =====
     const firstBlock = createNewBlock(gameState.nextBlock);
     setCurrentBlock(firstBlock);
 
-    // ===== 次のネクストブロックを生成 =====
     setGameState((prev) => ({
       ...prev,
       nextBlock: getRandomBlockType(),
@@ -88,45 +81,76 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
   }, []);
 
   // ===== ブロック落下ループ =====
+  // gridが変更されたときだけ再実行（ブロック固定時）
   useEffect(() => {
+    console.log('落下ループ開始:', {
+    gameOver: gameState.gameOver,
+    paused: gameState.paused,
+    currentBlock: currentBlock,
+  });
+
     if (!gameState.gameOver && !gameState.paused && currentBlock) {
+      console.log('タイマーを設定します');
+
+      // ===== 既存のタイマーをクリア =====
+      if (fallIntervalRef.current) {
+        clearInterval(fallIntervalRef.current);
+      }
+
+      // ===== 新しいタイマーを設定 =====
       fallIntervalRef.current = setInterval(() => {
+        console.log('タイマーコールバック実行');
+        
         setCurrentBlock((prevBlock) => {
+          console.log('prevBlock:', prevBlock);
+          console.log('grid:', grid);
+          
           if (!prevBlock) return null;
 
+          // ===== ブロックが下に移動できるかチェック =====
           if (canMoveDown(prevBlock, grid)) {
-            // ===== 下に移動できる =====
+            console.log('下に移動');
+
             return moveBlockDown(prevBlock);
           } else {
             // ===== ブロック着地処理 =====
             console.log(`ブロック着地：${prevBlock.type}型`);
 
-            // ===== グリッドにブロックを固定 =====
-            const newGrid = fixBlockToGrid(grid, prevBlock);
-            setGrid(newGrid);
+            // ===== グリッドにブロックを固定（setGridで次のuseEffectトリガー） =====
+            setGrid((prevGrid) => {
+              const newGrid = fixBlockToGrid(prevGrid, prevBlock);
 
-            // ===== ゲームオーバー判定 =====
-            if (checkGameOver(newGrid)) {
-              console.log('ゲームオーバー！');
-              setGameState((prev) => ({
-                ...prev,
-                gameOver: true,
-              }));
-              return null;
-            }
+              // ===== ゲームオーバー判定 =====
+              if (checkGameOver(newGrid)) {
+                console.log('ゲームオーバー！');
+                setGameState((prev) => ({
+                  ...prev,
+                  gameOver: true,
+                }));
+              }
+
+              return newGrid;
+            });
 
             // ===== 次のブロックを生成 =====
-            const nextNewBlock = createNewBlock(gameState.nextBlock);
-            setGameState((prev) => ({
-              ...prev,
-              nextBlock: getRandomBlockType(),
-            }));
+            setGameState((prev) => {
+              const nextNewBlock = createNewBlock(prev.nextBlock);
+              setCurrentBlock(nextNewBlock);
 
-            return nextNewBlock;
+              return {
+                ...prev,
+                nextBlock: getRandomBlockType(),
+              };
+            });
+
+            return null; // 現在のブロックはクリア
           }
         });
       }, FALL_INTERVAL);
-    }
+      console.log('タイマーID:', fallIntervalRef.current);
+  } else {
+    console.log('タイマー設定をスキップ');
+  }
 
     // ===== クリーンアップ =====
     return () => {
@@ -134,7 +158,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
         clearInterval(fallIntervalRef.current);
       }
     };
-  }, [gameState.gameOver, gameState.paused, currentBlock, grid, gameState.nextBlock]);
+  }, [gameState.gameOver, gameState.paused]); // ===== gameStateの開始/停止フラグのみ依存 =====
 
   // ===== グリッド描画用 =====
   const displayGrid = mergeBlockWithGrid(grid, currentBlock);
@@ -144,13 +168,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     setCurrentBlock((prevBlock) => {
       if (!prevBlock) return null;
 
-      // ===== 左に移動できるかチェック =====
       if (canMoveLeft(prevBlock, grid)) {
         console.log('左に移動');
         return moveBlockLeft(prevBlock);
       } else {
         console.log('左に移動できません');
-        return prevBlock; // 動かない
+        return prevBlock;
       }
     });
   };
@@ -160,13 +183,12 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     setCurrentBlock((prevBlock) => {
       if (!prevBlock) return null;
 
-      // ===== 右に移動できるかチェック =====
       if (canMoveRight(prevBlock, grid)) {
         console.log('右に移動');
         return moveBlockRight(prevBlock);
       } else {
         console.log('右に移動できません');
-        return prevBlock; // 動かない
+        return prevBlock;
       }
     });
   };
@@ -175,7 +197,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
   const handleRestart = () => {
     console.log('ゲームをリスタートします');
 
-    // ===== グリッドを初期化 =====
     setGrid(() => {
       return Array(22)
         .fill(null)
@@ -189,11 +210,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
         );
     });
 
-    // ===== ゲーム状態をリセット =====
-    const firstBlock = createNewBlock(gameState.nextBlock);
-    setCurrentBlock(firstBlock);
-
-    setGameState({
+    const nextGameState = {
       score: 0,
       lines: 0,
       level: 1,
@@ -201,7 +218,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
       paused: false,
       nextBlock: getRandomBlockType(),
       heldBlock: null,
-    });
+    };
+    setGameState(nextGameState);
+
+    const firstBlock = createNewBlock(nextGameState.nextBlock);
+    setCurrentBlock(firstBlock);
   };
 
   // ===== タイトルに戻るボタン押下時の処理 =====
@@ -216,7 +237,6 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     router.back();
   };
 
-  // ===== タイトルに戻るボタン（ゲーム中用） =====
   const handleReturnTitleInGame = () => {
     console.log('タイトルに戻ります');
     if (fallIntervalRef.current) {
