@@ -26,10 +26,10 @@ export const getBlockShape = (blockType: BlockType): number[][] => {
 // ===== グリッドに新しいブロックを配置する関数 =====
 // グリッドに落下中のブロックをマージして表示
 export const mergeBlockWithGrid = (
-  grid: any[][], // グリッド
-  currentBlock: CurrentBlock | null // 現在落下中のブロック
+  grid: any[][],
+  currentBlock: CurrentBlock | null
 ): any[][] => {
-  // ===== グリッドのコピーを作成（元のグリッドを変更しないため） =====
+  // ===== グリッドのコピーを作成 =====
   const newGrid = grid.map((row) => [...row]);
 
   // ===== 落下中のブロックがなければグリッドをそのまま返す =====
@@ -37,8 +37,9 @@ export const mergeBlockWithGrid = (
     return newGrid;
   }
 
-  // ===== ブロック形状を取得 =====
-  const blockShape = getBlockShape(currentBlock.type);
+  // ===== 回転状態に応じたブロック形状を取得（修正） =====
+  // getBlockShape ではなく getRotatedBlockShape を使用
+  const blockShape = getRotatedBlockShape(currentBlock.type, currentBlock.rotation);
 
   // ===== ブロック形状の4×4配列をループして、グリッドに配置 =====
   for (let row = 0; row < 4; row++) {
@@ -266,5 +267,136 @@ export const moveBlockRight = (currentBlock: CurrentBlock): CurrentBlock => {
   return {
     ...currentBlock,
     column: currentBlock.column + 1, // 列を1増やす（右移動）
+  };
+};
+
+// ===== ブロックタイプごとの回転中心を定義 =====
+// テトリスガイドラインに準拠
+// 中心座標は4×4グリッド上の位置
+const ROTATION_CENTERS: Record<BlockType, { x: number; y: number }> = {
+  [BlockType.I]: { x: 1.5, y: 1.5 },  // I型：グリッドの中央
+  [BlockType.O]: { x: 1.5, y: 1.5 },  // O型：グリッドの中央（回転しない）
+  [BlockType.T]: { x: 1, y: 1 },      // T型：中心やや左上
+  [BlockType.S]: { x: 1, y: 1 },      // S型：中心やや左上
+  [BlockType.Z]: { x: 1, y: 1 },      // Z型：中心やや左上
+  [BlockType.J]: { x: 1, y: 1 },      // J型：中心やや左上
+  [BlockType.L]: { x: 1, y: 1 },      // L型：中心やや左上
+  [BlockType.None]: { x: 1.5, y: 1.5 }, // None：グリッドの中央
+};
+
+// ===== 回転中心を基準に4×4配列を90度時計回転する関数 =====
+const rotateMatrixClockwiseAroundCenter = (
+  matrix: number[][],
+  blockType: BlockType
+): number[][] => {
+  // ===== 新しい4×4配列を作成 =====
+  const rotated: number[][] = Array(4)
+    .fill(null)
+    .map(() => Array(4).fill(0));
+
+  // ===== 回転中心を取得 =====
+  const center = ROTATION_CENTERS[blockType];
+
+  // ===== 各セルを回転中心を基準に回転 =====
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      // ===== 回転中心からの相対座標を計算 =====
+      const relY = row - center.y;
+      const relX = col - center.x;
+
+      // ===== 90度時計回転：(x, y) → (y, -x) =====
+      const newRelX = relY;
+      const newRelY = -relX;
+
+      // ===== 回転中心に戻す =====
+      const newRow = Math.round(newRelY + center.y);
+      const newCol = Math.round(newRelX + center.x);
+
+      // ===== 回転後の座標がグリッド内かチェック =====
+      if (newRow >= 0 && newRow < 4 && newCol >= 0 && newCol < 4) {
+        rotated[newRow][newCol] = matrix[row][col];
+      }
+    }
+  }
+
+  return rotated;
+};
+
+// ===== 回転状態に応じたブロック形状を取得 =====
+// rotationの値（0-3）に応じて、形状を回転させる
+export const getRotatedBlockShape = (
+  blockType: BlockType,
+  rotation: number
+): number[][] => {
+  // ===== 基本形状を取得 =====
+  let shape = getBlockShape(blockType);
+
+  // ===== rotation回数分、90度回転を繰り返す =====
+  for (let i = 0; i < rotation; i++) {
+    shape = rotateMatrixClockwiseAroundCenter(shape, blockType);
+  }
+
+  return shape;
+};
+
+// ===== ブロックが回転できるかチェック =====
+export const canRotate = (
+  currentBlock: CurrentBlock,
+  grid: Grid
+): boolean => {
+  // ===== 新しい回転状態を計算 =====
+  const newRotation = (currentBlock.rotation + 1) % 4;
+
+  // ===== 新しい回転状態でのブロック形状を取得 =====
+  const rotatedShape = getRotatedBlockShape(
+    currentBlock.type,
+    newRotation
+  );
+
+  // ===== 回転後の形状でグリッド内に収まるかチェック =====
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 4; col++) {
+      // ===== 形状で1の位置をチェック =====
+      if (rotatedShape[row][col] === 1) {
+        const gridRow = currentBlock.row + row;
+        const gridCol = currentBlock.column + col;
+
+        // ===== グリッドの範囲外をチェック =====
+        if (gridRow < 0 || gridRow >= grid.length) {
+          return false;
+        }
+        if (gridCol < 0 || gridCol >= grid[0].length) {
+          return false;
+        }
+
+        // ===== グリッドに埋まっているセルをチェック =====
+        if (gridRow >= 0 && grid[gridRow][gridCol].filled) {
+          return false;
+        }
+      }
+    }
+  }
+
+  // ===== 回転可能 =====
+  return true;
+};
+
+// ===== ブロックを時計回転させる関数 =====
+export const rotateBlockClockwise = (
+  currentBlock: CurrentBlock
+): CurrentBlock => {
+  return {
+    ...currentBlock,
+    rotation: (currentBlock.rotation + 1) % 4, // 0→1→2→3→0
+  };
+};
+
+// ===== ブロックを反時計回転させる関数 =====
+export const rotateBlockCounterClockwise = (
+  currentBlock: CurrentBlock
+): CurrentBlock => {
+  return {
+    ...currentBlock,
+    rotation: (currentBlock.rotation + 3) % 4, // 0→3→2→1→0（-1と同じ）
   };
 };

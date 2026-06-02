@@ -28,6 +28,9 @@ import {
   canMoveRight,
   moveBlockLeft,
   moveBlockRight,
+  canRotate,
+  rotateBlockClockwise, 
+  rotateBlockCounterClockwise,
 } from '@/utils/blockUtils';
 
 interface GameScreenProps {
@@ -263,6 +266,38 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
     router.push('/');
   };
 
+  // ===== 左回転ボタン押下時の処理 =====
+  const handleRotateCounterClockwise = () => {
+    setCurrentBlock((prevBlock) => {
+      if (!prevBlock) return null;
+
+      // ===== 左回転（反時計回転）できるかチェック =====
+      if (canRotate(prevBlock, gridRef.current)) {
+        console.log('左回転');
+        return rotateBlockCounterClockwise(prevBlock);
+      } else {
+        console.log('左回転できません（衝突または範囲外）');
+        return prevBlock;
+      }
+    });
+  };
+  
+  // ===== 右回転ボタン押下時の処理 =====
+  const handleRotateClockwise = () => {
+    setCurrentBlock((prevBlock) => {
+      if (!prevBlock) return null;
+
+      // ===== 右回転（時計回転）できるかチェック =====
+      if (canRotate(prevBlock, gridRef.current)) {
+        console.log('右回転');
+        return rotateBlockClockwise(prevBlock);
+      } else {
+        console.log('右回転できません（衝突または範囲外）');
+        return prevBlock;
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -279,15 +314,27 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
 
         {/* ===== メインゲームエリア ===== */}
         <View style={styles.gameContainer}>
-          {/* ===== 左側：ホールド欄 + 左移動ボタン ===== */}
+          {/* ===== 左側：ホールド欄 + 左移動ボタン + 左回転ボタン ===== */}
           <View style={styles.leftPanel}>
+            {/* ホールド欄 */}
             <HoldBlockPreview heldBlock={gameState.heldBlock} />
+
+            {/* 左移動ボタン */}
             <TouchableOpacity
               style={styles.moveButton}
               onPress={handleMoveLeft}
               activeOpacity={0.7}
             >
               <Text style={styles.moveButtonArrow}>←</Text>
+            </TouchableOpacity>
+
+            {/* 左回転ボタン */}
+            <TouchableOpacity
+              style={styles.rotateButton}
+              onPress={handleRotateCounterClockwise}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rotateButtonArrow}>↶</Text>
             </TouchableOpacity>
           </View>
 
@@ -296,17 +343,29 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onGameEnd }) => {
             <GameGrid grid={displayGrid} />
           </View>
 
-          {/* ===== 右側：ネクストブロック + 右移動ボタン ===== */}
+          {/* ===== 右側：ネクストブロック + 右移動ボタン + 右回転ボタン ===== */}
           <View style={styles.rightPanel}>
+            {/* ネクストブロック欄 */}
             <View style={styles.nextBlockContainer}>
               <NextBlockPreview nextBlock={gameState.nextBlock} />
             </View>
+
+            {/* 右移動ボタン */}
             <TouchableOpacity
               style={styles.moveButton}
               onPress={handleMoveRight}
               activeOpacity={0.7}
             >
               <Text style={styles.moveButtonArrow}>→</Text>
+            </TouchableOpacity>
+
+            {/* 右回転ボタン */}
+            <TouchableOpacity
+              style={styles.rotateButton}
+              onPress={handleRotateClockwise}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rotateButtonArrow}>↷</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -382,7 +441,8 @@ const styles = StyleSheet.create({
   },
 
   leftPanel: {
-    justifyContent: 'space-between',
+    // ===== 上・中・下に3つの要素を配置 =====
+    justifyContent: 'space-around',
     paddingRight: spacing.sm,
     alignItems: 'center',
   },
@@ -394,7 +454,8 @@ const styles = StyleSheet.create({
   },
 
   rightPanel: {
-    justifyContent: 'space-between',
+    // ===== 上・中・下に3つの要素を配置 =====
+    justifyContent: 'space-around',
     paddingLeft: spacing.sm,
     alignItems: 'center',
   },
@@ -412,6 +473,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
 
+  // ===== 左右移動ボタン =====
   moveButton: {
     backgroundColor: colors.secondary,
     width: 50,
@@ -432,4 +494,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 24,
   },
+
+  // ===== 左右回転ボタン（新規） =====
+  rotateButton: {
+    backgroundColor: colors.accent, // 黄色で目立たせる
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+
+  rotateButtonArrow: {
+    ...typography.heading,
+    color: colors.background,
+    fontWeight: 'bold',
+    fontSize: 20,
+  },
+
 });

@@ -2,9 +2,11 @@ import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import { Grid, BlockType } from '@/types/game';
 import { colors } from '@/styles/colors';
+import { getRotatedBlockShape } from '@/utils/blockUtils';
 
 interface GameGridProps {
   grid: Grid; // 10×22のグリッド
+  currentBlockForDisplay?: any; // displayGridの計算に使うため
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({ grid }) => {
